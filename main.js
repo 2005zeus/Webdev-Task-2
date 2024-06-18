@@ -4,6 +4,7 @@ const ctx = canvas.getContext('2d');
 
 const sprites = {
     'Player': 'sprites/playerSheet.png',
+    'Background': 'sprites/background.png',
 
     'Normal': 'sprites/z1.png',
     'Jumper': 'sprites/z2.png',
@@ -291,7 +292,7 @@ class Placeable {
         this.effect = function() {
             return {
                 position: {
-                    x: sides(this).middle.x - this.range/2,
+                    x: sides(this, 'middle').x - this.range/2,
                     y: this.position.y - this.displayHeight
                 },
                 scale: {
@@ -354,7 +355,7 @@ class Placeable {
     shoot() {
         if (!this.gunAngle) return;
 
-        this.weapon.shoot(this.position, this.scale, this.gunAngle, sides(this).middle.y - this.scale.y/4);
+        this.weapon.shoot(this.position, this.scale, this.gunAngle, sides(this, 'middle').y - this.scale.y/4);
         this.usedTime = cTime;
     }
 }
@@ -504,17 +505,44 @@ function applyGravity(object) {
     object.velocity.y += g;
 }
 
-function sides(object) {
+function sides(object, key = null) {
     // Coordinates for all sides and middle
-    return {
-        top: object.position.y,
-        bottom: object.position.y + object.scale.y,
-        left: object.position.x,
-        right: object.position.x + object.scale.x,
+    // return {
+    //     top: object.position.y,
+    //     bottom: object.position.y + object.scale.y,
+    //     left: object.position.x,
+    //     right: object.position.x + object.scale.x,
 
-        middle: {
+    //     middle: {
+    //         x: object.position.x + object.scale.x / 2,
+    //         y: object.position.y + object.scale.y / 2,
+    //     }
+    // }
+
+    if (key == 'middle') {
+        return {
             x: object.position.x + object.scale.x / 2,
             y: object.position.y + object.scale.y / 2,
+        }
+    } else if (key == 'top') {
+        return object.position.y
+    } else if (key == 'bottom') {
+        return object.position.y + object.scale.y
+    } else if (key == 'left') {
+        return object.position.x
+    } else if (key == 'right') {
+        return object.position.x + object.scale.x
+    } else {
+        return {
+            top: object.position.y,
+            bottom: object.position.y + object.scale.y,
+            left: object.position.x,
+            right: object.position.x + object.scale.x,
+
+            middle: {
+                x: object.position.x + object.scale.x / 2,
+                y: object.position.y + object.scale.y / 2,
+            }
         }
     }
 }
@@ -522,7 +550,6 @@ function sides(object) {
 function detectCollision(object1, object2) {
     const a = sides(object1);
     const b = sides(object2);
-
     if (
         a.top <= b.bottom &&
         a.bottom >= b.top &&
@@ -681,8 +708,8 @@ function aimNearestZombie(position, item) {
     
         for (let zombie of zombies) {
             const zombiePos = {
-                x: sides(zombie).middle.x,
-                y: sides(zombie).middle.y,
+                x: sides(zombie, 'middle').x,
+                y: sides(zombie, 'middle').y,
             }
             if (isShootable(defensePos, zombiePos, range, blocks)) {
                 const distance = calculateDistance(defensePos, zombiePos);
@@ -701,8 +728,8 @@ function aimNearestZombie(position, item) {
     
         if (nearestZombie) {
             const endPos = {
-                x: sides(nearestZombie).middle.x,
-                y: sides(nearestZombie).middle.y,
+                x: sides(nearestZombie, 'middle').x,
+                y: sides(nearestZombie, 'middle').y,
             }
     
             drawParabolicPath(defensePos, endPos, true, item);
@@ -793,7 +820,7 @@ function updateGameState() {
 function renderGame() {
     drawBackground();
 
-    drawPlatform();
+    // drawPlatform();
     
     drawPlayer();
 
@@ -827,7 +854,8 @@ function startGame() {
 
 function spawner() {
     function spawnZombie() {
-        let location = Math.round(gameState.spawnerLocations[Math.floor(Math.random() * 2)]/50)*50
+        // let location = Math.round(gameState.spawnerLocations[Math.floor(Math.random() * 2)]/50)*50
+        let location = Math.round(gameState.spawnerLocations[0]/50)*50
 
         const hSize = spawnerState.zombies.hordeSize;
         const radomHordeSize = Math.floor(Math.random() * (hSize.max - hSize.min + 1)) + hSize.min;
@@ -859,22 +887,27 @@ function spawner() {
         spawnerState.zombies.lastSpawn = cTime;
     }
 
-    if (spawnerState.powerups.lastSpawn + spawnerState.powerups.coolDown <= cTime) {
-        spawnPowerup();
-        spawnerState.powerups.lastSpawn = cTime;
-    }
+    // if (spawnerState.powerups.lastSpawn + spawnerState.powerups.coolDown <= cTime) {
+    //     spawnPowerup();
+    //     spawnerState.powerups.lastSpawn = cTime;
+    // }
 }
 
 function drawBackground() {
     ctx.beginPath();
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, canvas.width, gameState.platform.position.y);
+    // ctx.fillStyle = "black";
+    // ctx.fillRect(0, 0, canvas.width, gameState.platform.position.y);
+    ctx.drawImage(
+        getSprite("Background"),
+        0, 0,
+        canvas.width, canvas.height + 30
+    )
 }
 
 function updatePlatform() {
     // Check collision with gravity objects
     gameState.entities.forEach(entity => {
-        if (sides(entity).bottom >= gameState.platform.position.y) {
+        if (sides(entity, 'bottom') >= gameState.platform.position.y) {
             entity.collisionState.bottom = gameState.platform;
         }
     });
@@ -924,7 +957,7 @@ function updatePlayer() {
 
     } else {
         velocity.y = 0;
-        position.y = sides(collisionState.bottom).top - player.scale.y;
+        position.y = sides(collisionState.bottom, 'top') - player.scale.y;
     }
 
     function moveCamera(direction) {
@@ -1150,7 +1183,7 @@ function updateZombies() {
 
         } else {
             velocity.y = 0;
-            position.y = sides(collisionState.bottom).top - zombie.scale.y
+            position.y = sides(collisionState.bottom, 'top') - zombie.scale.y
         }
         // #endregion
 
@@ -1212,8 +1245,8 @@ function updatePlaceables() {
 
         if (item.type == "Shooter") {
             const spherePos = {
-                x: sides(item).middle.x,
-                y: sides(item).middle.y - scale.y/4,
+                x: sides(item, 'middle').x,
+                y: sides(item, 'middle').y - scale.y/4,
             }
 
             if (!item.active) {
@@ -1252,8 +1285,8 @@ function drawPlaceables() {
 
         if (item.type == "Shooter") {
             const spherePos = {
-                x: sides(item).middle.x,
-                y: sides(item).middle.y - scale.y/4,
+                x: sides(item, 'middle').x,
+                y: sides(item, 'middle').y - scale.y/4,
             }
 
             ctx.beginPath()
@@ -1261,10 +1294,10 @@ function drawPlaceables() {
 
             // Stand
             ctx.strokeStyle = "white";
-            ctx.moveTo(sides(item).middle.x, sides(item).middle.y);
-            ctx.lineTo(sides(item).left + scale.x/4, sides(item).bottom);
-            ctx.lineTo(sides(item).right - scale.x/4, sides(item).bottom);
-            ctx.lineTo(sides(item).middle.x, sides(item).middle.y);
+            ctx.moveTo(sides(item, 'middle').x, sides(item, 'middle').y);
+            ctx.lineTo(position.x + scale.x/4, sides(item, 'bottom'));
+            ctx.lineTo(sides(item, 'right') - scale.x/4, sides(item, 'bottom'));
+            ctx.lineTo(sides(item, 'middle').x, sides(item, 'middle').y);
             ctx.stroke();
 
             // Sphere
@@ -1308,14 +1341,17 @@ function checkBlockCollisions() {
         const {top, bottom, left, right,} = sides(block);
         gameState.entities.forEach(entity => {
             let eState = entity.collisionState;
+            // const {etop, ebottom, eleft, eright,} = sides(entity);
 
             if (detectCollision(block, entity)) {
-                // console.log(entity);
                 // In collision, add collisionState to entity
-                     if (right == sides(entity).left) { eState.left = block } 
-                else if (left == sides(entity).right) { eState.right = block } 
-                else if (bottom >= sides(entity).top && top <= sides(entity).top) { eState.top = block }
-                else if (top <= sides(entity).bottom) { eState.bottom = block }
+                if (right <= sides(entity, 'left')) { eState.left = block } 
+                else if (left <= sides(entity, 'right')) { eState.right = block }
+                
+                if (eState.left != block && eState.right != block) {
+                    if (bottom >= sides(entity, 'top') && top <= sides(entity, 'top')) { eState.top = block }
+                    else if (Math.abs(top-sides(entity, 'bottom')) < 2) { eState.bottom = block }
+                }
             } else {
                 // Remove collisionState from entity
                 Object.keys(eState).forEach(key => {
@@ -1369,7 +1405,7 @@ function updatePowerUps() {
 
         } else {
             velocity.y = 0;
-            position.y = sides(collisionState.bottom).top - powerUp.scale.y
+            position.y = sides(collisionState.bottom, 'top') - powerUp.scale.y
         }
         // #endregion
         // ---
@@ -1436,14 +1472,14 @@ function drawUI() {
         const offsetTop = -15;
 
         if (ch < mh && ch > 0) {
-            const top = sides(entity).top;
+            const top = sides(entity, 'top');
 
             // Health bar
             ctx.beginPath();
             ctx.fillStyle = "gray";
-            ctx.fillRect(sides(entity).left, top + offsetTop, sides(entity).right - sides(entity).left, barHeight);
+            ctx.fillRect(entity.position.x, top + offsetTop, sides(entity, 'right') - entity.position.x, barHeight);
             ctx.fillStyle = "lime";
-            ctx.fillRect(sides(entity).left, top + offsetTop, (sides(entity).right - sides(entity).left) * (ch/mh), barHeight);
+            ctx.fillRect(entity.position.x, top + offsetTop, (sides(entity, 'right') - entity.position.x) * (ch/mh), barHeight);
             ctx.stroke();
         }
     });
