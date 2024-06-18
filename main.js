@@ -887,10 +887,10 @@ function spawner() {
         spawnerState.zombies.lastSpawn = cTime;
     }
 
-    // if (spawnerState.powerups.lastSpawn + spawnerState.powerups.coolDown <= cTime) {
-    //     spawnPowerup();
-    //     spawnerState.powerups.lastSpawn = cTime;
-    // }
+    if (spawnerState.powerups.lastSpawn + spawnerState.powerups.coolDown <= cTime) {
+        spawnPowerup();
+        spawnerState.powerups.lastSpawn = cTime;
+    }
 }
 
 function drawBackground() {
@@ -931,37 +931,52 @@ function drawPlatform() {
 
 function updatePlayer() {
     let player = gameState.player;
-
     let velocity = player.velocity;
     let position = player.position;
     let collisionState = player.collisionState;
-
     let spriteIndex = player.spriteindex;
 
-    // Top collision
-    if (collisionState.top) {
-        velocity.y = 0;
-    }
-
+    let direction = 0;
+    //---
     // Gravity
+    velocity.y += g;
+    velocity.x = 0;
+
+    // Up
     if (keyState[' '] && gameState.jetpack.fuel > 0) {
         collisionState.bottom = false;
-        position.y -= 2;
-        velocity.y = 0;
+        velocity.y = -2;
 
         gameState.jetpack.fuel -= 0.1;
-    } else if (!collisionState.bottom) {
-        // Apply gravity
-        applyGravity(player)
-        position.y += velocity.y;
-
-    } else {
-        velocity.y = 0;
-        position.y = sides(collisionState.bottom, 'top') - player.scale.y;
+    }
+    else if(keyState['w'] && !keyState[' '] && collisionState.bottom){
+        velocity.y = -player.jumpHeight;
+        collisionState.bottom = null;
     }
 
-    function moveCamera(direction) {
-        // Move everything other than player to the opposite direction (direction can be 1 or -1)
+    // Left, right
+    if (keyState['a'] && !collisionState.left) {
+        if (player.position.x <= cameraRange.min) {
+            direction = -1;
+        } else {
+            velocity.x = -player.speed;
+        }
+
+        spriteIndex.current = spriteIndex.current <= spriteIndex.max? spriteIndex.current + 0.1 : 0;
+    }
+    if (keyState['d'] && !collisionState.right) {
+        if (player.position.x >= cameraRange.max) {
+            direction = 1;
+        } else {
+            velocity.x = player.speed;
+        }
+
+        spriteIndex.current = spriteIndex.current <= spriteIndex.max? spriteIndex.current + 0.1 : 0;
+    }
+
+    //---
+    // Move camera
+    if (direction) {
         const everything = ['zombies', 'blocks', 'bullets', 'powerUps', 'placeables'];
 
         everything.forEach(stuff => {
@@ -972,31 +987,17 @@ function updatePlayer() {
         gameState.spawnerLocations[1] -= direction * player.speed;
     }
 
-    // Movement
-    if (keyState['w'] && velocity.y == 0 && !keyState[' ']) {
-        velocity.y = -player.jumpHeight;
-        position.y += velocity.y;
-
-        collisionState.bottom = false;
+    //---
+    if (collisionState.top) {
+        velocity.y = 0;
     }
-    if (keyState['a'] && !collisionState.left) {
-        if (player.position.x <= cameraRange.min) {
-            moveCamera(-1)
-        } else {
-            position.x -= player.speed;
-        }
-
-        spriteIndex.current = spriteIndex.current <= spriteIndex.max? spriteIndex.current + 0.1 : 0;
+    if(collisionState.bottom) {
+        velocity.y = 0;
+        position.y = sides(collisionState.bottom, 'top') - player.scale.y;
     }
-    if (keyState['d'] && !collisionState.right) {
-        if (player.position.x >= cameraRange.max) {
-            moveCamera(1)
-        } else {
-            position.x += player.speed;
-        }
 
-        spriteIndex.current = spriteIndex.current <= spriteIndex.max? spriteIndex.current + 0.1 : 0;
-    }
+    position.x += velocity.x;
+    position.y += velocity.y;
 }
 
 function drawPlayer() {
@@ -1345,12 +1346,16 @@ function checkBlockCollisions() {
 
             if (detectCollision(block, entity)) {
                 // In collision, add collisionState to entity
-                if (right <= sides(entity, 'left')) { eState.left = block } 
-                else if (left <= sides(entity, 'right')) { eState.right = block }
-                
-                if (eState.left != block && eState.right != block) {
-                    if (bottom >= sides(entity, 'top') && top <= sides(entity, 'top')) { eState.top = block }
-                    else if (Math.abs(top-sides(entity, 'bottom')) < 2) { eState.bottom = block }
+                if (sides(block, 'right') <= sides(entity, 'left')) {
+                    eState.left = block;
+                } else if (sides(block, 'left') >= sides(entity, 'right')) {
+                    eState.right = block;
+                }
+
+                if (sides(block, 'bottom') >= sides(entity, 'top') && sides(block, 'top') <= sides(entity, 'top')) {
+                    eState.top = block;
+                } else if (sides(block, 'top') <= sides(entity, 'bottom') && sides(block, 'bottom') >= sides(entity, 'bottom')) {
+                    eState.bottom = block;
                 }
             } else {
                 // Remove collisionState from entity
@@ -1759,8 +1764,13 @@ function handleKeyDown(event) {
         // numbers
         keyState.inventoryIndex = event.key - 1;
     } else if (event.key == 'Escape') {
-        // Toggle paused
-        gameState.isPaused = !gameState.isPaused;
+        if (!gameState.isStarted) {
+            // Start game
+            startGame();
+        } else {
+            // Toggle pause
+            gameState.isPaused =!gameState.isPaused;
+        }
     }
 }
 
